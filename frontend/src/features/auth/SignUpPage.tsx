@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { School } from "lucide-react";
 import { supabase } from "../../services/supabase/client";
 import { callEdgeFunction, EdgeFunctionError } from "../../services/edge-functions/client";
 import { useAuth } from "../../app/AuthContext";
@@ -30,7 +31,14 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (session && !submitting) return <Navigate to="/dashboard" replace />;
+  // Redirection automatique uniquement si une session existait déjà AVANT
+  // toute tentative de soumission sur cette page (visite directe de /signup
+  // par quelqu'un déjà connecté). Ne dépend jamais de "session" pendant le
+  // flux de création : sinon un échec de register-school (réseau, slug déjà
+  // pris...) redirigerait quand même vers /dashboard en masquant l'erreur,
+  // puisque le compte auth existe déjà à ce stade même si l'école n'a pas
+  // été créée.
+  if (session && !accountReady && !submitting) return <Navigate to="/dashboard" replace />;
 
   function handleSchoolNameChange(value: string) {
     setSchoolName(value);
@@ -85,6 +93,12 @@ export function SignUpPage() {
   return (
     <div className="auth-page">
       <form className="card auth-card" onSubmit={handleSubmit}>
+        <div className="auth-brand">
+          <span className="sidebar-brand-icon">
+            <School size={18} color="#fff" />
+          </span>
+          School Manage
+        </div>
         <h1>Créer mon école</h1>
         <p className="muted">
           Inscrivez votre établissement et devenez directeur immédiatement — aucune validation manuelle requise.

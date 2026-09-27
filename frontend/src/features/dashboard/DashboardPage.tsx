@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Wallet, TrendingUp, AlertTriangle, Percent, Users, FileWarning } from "lucide-react";
 import { useAuth } from "../../app/AuthContext";
 import { supabase } from "../../services/supabase/client";
 import { formatAmount } from "../../lib/format";
+import { StatCard } from "../../components/StatCard";
+import { Donut } from "../../components/Donut";
 
 interface InvoiceRow {
   id: string;
@@ -119,32 +122,28 @@ export function DashboardPage() {
       {error && <p className="error-text">{error}</p>}
 
       {!loading && !error && (
-        <div className="kpi-grid">
-          <div className="kpi-card">
-            <span className="kpi-label">Total facturé</span>
-            <span className="kpi-value">{formatAmount(stats.totalInvoiced)}</span>
+        <>
+          <div className="kpi-grid">
+            <StatCard icon={Wallet} color="blue" label="Total facturé" value={formatAmount(stats.totalInvoiced)} />
+            <StatCard icon={TrendingUp} color="green" label="Total recouvré" value={formatAmount(stats.totalCollected)} />
+            <StatCard icon={AlertTriangle} color="amber" label="Restant à recouvrer" value={formatAmount(stats.totalOutstanding)} />
+            <StatCard icon={Percent} color="purple" label="Taux de recouvrement" value={`${stats.collectionRate.toFixed(1)} %`} />
+            <StatCard icon={Users} color="blue" label="Élèves avec impayés" value={String(stats.studentsWithUnpaid)} />
+            <StatCard icon={FileWarning} color="red" label="Factures en retard" value={String(stats.overdueCount)} />
           </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Total recouvré</span>
-            <span className="kpi-value">{formatAmount(stats.totalCollected)}</span>
+
+          <div className="card">
+            <h2>Recouvrement</h2>
+            <Donut
+              centerLabel="recouvré"
+              centerValue={`${stats.collectionRate.toFixed(0)}%`}
+              slices={[
+                { label: `Recouvré — ${formatAmount(stats.totalCollected)}`, value: stats.totalCollected, color: "#16a34a" },
+                { label: `Restant — ${formatAmount(stats.totalOutstanding)}`, value: stats.totalOutstanding, color: "#d97706" },
+              ]}
+            />
           </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Restant à recouvrer</span>
-            <span className="kpi-value">{formatAmount(stats.totalOutstanding)}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Taux de recouvrement</span>
-            <span className="kpi-value">{stats.collectionRate.toFixed(1)} %</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Élèves avec impayés</span>
-            <span className="kpi-value">{stats.studentsWithUnpaid}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Factures en retard</span>
-            <span className="kpi-value">{stats.overdueCount}</span>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

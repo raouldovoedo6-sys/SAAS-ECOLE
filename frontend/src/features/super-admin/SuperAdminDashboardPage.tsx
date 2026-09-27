@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Building2, GraduationCap, Wallet, TrendingUp } from "lucide-react";
 import { supabase } from "../../services/supabase/client";
 import { formatAmount, formatDate } from "../../lib/format";
+import { StatCard } from "../../components/StatCard";
 
 interface SchoolRow {
   id: string;
@@ -71,22 +73,10 @@ export function SuperAdminDashboardPage() {
 
       {!loading && (
         <div className="kpi-grid">
-          <div className="kpi-card">
-            <span className="kpi-label">Écoles inscrites</span>
-            <span className="kpi-value">{schools.length}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Élèves (toutes écoles)</span>
-            <span className="kpi-value">{studentsCount}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Total facturé (plateforme)</span>
-            <span className="kpi-value">{formatAmount(totalInvoiced)}</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Total recouvré (plateforme)</span>
-            <span className="kpi-value">{formatAmount(totalCollected)}</span>
-          </div>
+          <StatCard icon={Building2} color="blue" label="Écoles inscrites" value={String(schools.length)} />
+          <StatCard icon={GraduationCap} color="purple" label="Élèves (toutes écoles)" value={String(studentsCount ?? 0)} />
+          <StatCard icon={Wallet} color="amber" label="Total facturé (plateforme)" value={formatAmount(totalInvoiced)} />
+          <StatCard icon={TrendingUp} color="green" label="Total recouvré (plateforme)" value={formatAmount(totalCollected)} />
         </div>
       )}
 

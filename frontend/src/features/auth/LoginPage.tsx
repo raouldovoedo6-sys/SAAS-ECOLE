@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { School } from "lucide-react";
 import { supabase } from "../../services/supabase/client";
 import { useAuth } from "../../app/AuthContext";
 
@@ -29,6 +30,12 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <form className="card auth-card" onSubmit={handleSubmit}>
+        <div className="auth-brand">
+          <span className="sidebar-brand-icon">
+            <School size={18} color="#fff" />
+          </span>
+          School Manage
+        </div>
         <h1>Connexion</h1>
         <label>
           Email

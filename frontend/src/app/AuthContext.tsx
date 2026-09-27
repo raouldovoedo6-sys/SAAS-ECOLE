@@ -132,7 +132,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSuperAdmin,
     setCurrentSchoolId: setCurrentSchoolIdState,
     refreshMemberships: async () => {
-      if (session?.user) await loadMemberships(session.user.id);
+      // Ne PAS s'appuyer sur la variable "session" fermée par ce rendu :
+      // un appelant (ex: SignUpPage juste après la création de l'école)
+      // peut invoquer cette fonction dans une closure obtenue avant que
+      // l'état React n'ait eu le temps de se mettre à jour suite à
+      // l'événement d'authentification. On relit toujours la session
+      // actuelle directement auprès du client Supabase.
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        await Promise.all([loadMemberships(data.session.user.id), loadSuperAdminStatus(data.session.user.id)]);
+      }
     },
     signOut: async () => {
       await supabase.auth.signOut();
