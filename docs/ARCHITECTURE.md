@@ -36,7 +36,7 @@ Document de référence, à valider avant génération du code. Suit l'ordre dem
                         ▼                                ▼
               ┌─────────────────┐              ┌───────────────────────┐
               │  PostgreSQL      │              │ Prestataires externes  │
-              │  (source de       │              │ - Email transactionnel │
+              │  (source de       │              │ - Service SMS │
               │   vérité + RLS +  │              │ - WhatsApp Business API│
               │   triggers +      │              │ (secrets = Supabase    │
               │   contraintes)    │              │  Edge Function secrets)│
@@ -68,7 +68,7 @@ Document de référence, à valider avant génération du code. Suit l'ordre dem
     recharge son rôle réel depuis la DB, revalide tous les montants/état,
     exécute dans une transaction, écrit l'audit log.
 - **Aucun secret côté frontend** : clé `service_role`, clés WhatsApp, clé
-  fournisseur email → uniquement dans les secrets des Edge Functions
+  fournisseur SMS → uniquement dans les secrets des Edge Functions
   (`supabase secrets set`), jamais dans le bundle Netlify.
 - **PWA mobile-first** : Vite + React + TS, `vite-plugin-pwa`, design mobile
   d'abord, responsive ensuite pour desktop (dashboard direction).
@@ -210,9 +210,9 @@ create table guardians (
   phone text,
   email text,
   preferred_channel text not null default 'whatsapp'
-    check (preferred_channel in ('whatsapp','email','sms')),
+    check (preferred_channel in ('whatsapp','sms')),
   consent_whatsapp boolean not null default false,
-  consent_email boolean not null default false,
+  consent_sms boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -431,7 +431,7 @@ create table school_payment_methods ( -- moyens officiels communiqués aux paren
 create table notification_channel_settings (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references schools(id) on delete cascade,
-  channel text not null check (channel in ('whatsapp','email')),
+  channel text not null check (channel in ('whatsapp','sms')),
   enabled boolean not null default false,
   config jsonb not null default '{}'::jsonb, -- références non secrètes (sender id...)
   created_at timestamptz not null default now(),
@@ -443,7 +443,7 @@ create table reminder_rules (
   school_id uuid not null references schools(id) on delete cascade,
   name text not null,
   offset_days int not null,     -- -7, -2, 0, +3 ...
-  channel text not null check (channel in ('whatsapp','email','both')),
+  channel text not null check (channel in ('whatsapp','sms','both')),
   template_name text not null,
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -457,7 +457,7 @@ create table notifications (
   invoice_id uuid references invoices(id),
   payment_id uuid references payments(id),
   reminder_rule_id uuid references reminder_rules(id),
-  channel text not null check (channel in ('whatsapp','email')),
+  channel text not null check (channel in ('whatsapp','sms')),
   type text not null check (type in ('invoice','reminder','receipt','other')),
   template_name text not null,
   payload jsonb not null default '{}'::jsonb,
@@ -756,7 +756,7 @@ create policy audit_logs_select on audit_logs for select using (
 - PDF généré côté serveur (Deno + lib PDF, données lues depuis la DB au
   moment de la génération, jamais depuis le payload client).
 - Après création : Edge Function `send-notification-worker` (déclenchée par
-  insertion dans `notifications`) envoie via email/WhatsApp selon les
+  insertion dans `notifications`) envoie via SMS/WhatsApp selon les
   canaux activés pour l'école et le consentement du responsable.
 
 ### 5.5 Paiement partiel
@@ -822,9 +822,9 @@ rôle depuis la DB à chaque appel (jamais de confiance dans un claim client).
 | `approve-discount` | directeur | Validation réduction/exonération importante |
 | `generate-document-url` | tout rôle autorisé | Revalide l'accès puis émet URL signée courte durée (facture/reçu) |
 | `process-reminders` | cron (scheduled function) | Calcule et enqueue les rappels, idempotent |
-| `send-notification-worker` | cron / trigger interne | Dépile `notifications`, appelle email/WhatsApp |
+| `send-notification-worker` | cron / trigger interne | Dépile `notifications`, appelle SMS/WhatsApp |
 | `whatsapp-webhook` | WhatsApp platform | Vérifie signature, met à jour statut delivered/failed |
-| `email-webhook` | fournisseur email | Idem (bounce/delivered) |
+| `sms-webhook` | fournisseur SMS | Idem (delivered/failed selon disponibilité du fournisseur) |
 | `close-school-year` | directeur | Marque une année `closed`, active la nouvelle |
 | `export-audit-log` | directeur/super admin | Export CSV/PDF pour conformité |
 | *(future)* `payment-provider-webhook` | prestataire de paiement | Stub documenté §21, non implémenté au MVP |
@@ -950,20 +950,22 @@ critiques) :
 
 ## Points à clarifier avant de coder (risques à signaler)
 
-1. **Fournisseur email transactionnel** : aucun n'est encore choisi. Je
-   recommande un fournisseur avec API + webhooks de statut (bounce/delivered)
-   et bon support depuis l'Afrique de l'Ouest. À valider avant d'écrire
-   `send-notification-worker`.
+1. **Fournisseur SMS** : aucun n'est encore choisi (Twilio, Africa's Talking,
+   Infobip, etc.). Architecture prévue en adaptateur (`_shared/channels/sms.ts`)
+   pour brancher le fournisseur choisi sans toucher au reste du workflow ;
+   tant que les secrets ne sont pas configurés, le canal reste `enabled=false`
+   et aucun appel réseau réel n'est fait (email transactionnel abandonné pour
+   le MVP, comme demandé).
 2. **WhatsApp Business Platform** : nécessite un compte Meta Business vérifié
    et des templates pré-approuvés ; tant que la configuration n'est pas
    disponible (comme précisé dans la demande), le canal restera codé mais
    désactivé (`notification_channel_settings.enabled = false`), sans appel
    réseau réel.
-3. **Génération de PDF côté serveur** : à trancher entre une librairie Deno
-   native (ex. rendu HTML→PDF via un moteur headless packagé, ou une lib PDF
-   pure) exécutée dans l'Edge Function — impact sur le temps d'exécution et
-   la taille du bundle de la fonction. Je proposerai une option précise à
-   l'implémentation.
+3. **Génération de PDF côté serveur — décidé** : `pdf-lib` (pur JS, importé
+   via `esm.sh` dans les Edge Functions Deno). Pas de navigateur headless
+   (trop lourd/instable en Edge Function), construction programmatique des
+   pages (texte, tableaux simples, logo école) suffisante pour factures et
+   reçus, démarrage rapide et déterministe.
 4. **Cron/scheduling** : `pg_cron` (si activé sur le projet Supabase) vs.
    Supabase Scheduled Edge Functions — à confirmer selon le plan Supabase
    utilisé.
