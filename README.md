@@ -34,8 +34,8 @@ supabase secrets set CRON_SECRET=... FRONTEND_ORIGIN=https://votre-app.netlify.a
 Planifier `process-reminders` et `send-notification-worker` (pg_cron ou
 Supabase Scheduled Functions) avec l'en-tête `x-cron-secret: <CRON_SECRET>`.
 
-Créer un premier super administrateur (hors application, directement en
-base) :
+Créer un premier super administrateur (seule étape restant manuelle, hors
+application — un compte doit déjà exister dans Authentication → Users) :
 
 ```sql
 insert into platform_admins (user_id) values ('<uuid-auth-users>');
@@ -53,6 +53,21 @@ npm run build            # build de production (déploiement Netlify)
 
 Déploiement Netlify : dossier de build `frontend/dist`, commande de build
 `npm run build` avec répertoire de base `frontend`.
+
+### 3. Créer la première école
+
+Une fois connecté avec le compte super admin (menu "Écoles (admin)") :
+créer l'école et son premier directeur depuis l'écran `/admin/schools`.
+Comme aucun fournisseur email n'est configuré, un mot de passe temporaire
+s'affiche une seule fois à l'écran — à transmettre au directeur de façon
+sûre (il le change ensuite depuis "Profil"). Le directeur peut ensuite
+inviter comptables/personnel depuis Paramètres → Utilisateurs, selon le
+même principe.
+
+**Important** : les parents n'ont jamais de compte ni d'accès à
+l'application. Ils reçoivent leurs factures, reçus et rappels uniquement
+par SMS/WhatsApp, avec un lien direct (URL signée temporaire) vers le
+document — aucune connexion requise de leur part.
 
 ## Tests de sécurité
 
