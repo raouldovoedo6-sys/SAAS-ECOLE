@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { supabase } from "../../services/supabase/client";
 import { useAuth } from "../../app/AuthContext";
 
@@ -54,6 +54,9 @@ export function LoginPage() {
         <button type="submit" disabled={submitting}>
           {submitting ? "Connexion…" : "Se connecter"}
         </button>
+        <p className="muted">
+          Vous dirigez une école ? <Link to="/signup">Créer votre école</Link>
+        </p>
       </form>
     </div>
   );

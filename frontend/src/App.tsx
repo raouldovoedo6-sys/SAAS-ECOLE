@@ -5,6 +5,7 @@ import { RequireRole } from "./app/RequireRole";
 import { RequireSuperAdmin } from "./app/RequireSuperAdmin";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./features/auth/LoginPage";
+import { SignUpPage } from "./features/auth/SignUpPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { StudentsListPage } from "./features/students/StudentsListPage";
 import { StudentFormPage } from "./features/students/StudentFormPage";
@@ -32,7 +33,7 @@ import { SchoolYearsPage } from "./features/school-years/SchoolYearsPage";
 import { PaymentMethodsPage } from "./features/payment-methods/PaymentMethodsPage";
 import { UsersRolesPage } from "./features/users/UsersRolesPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
-import { SuperAdminSchoolsPage } from "./features/super-admin/SuperAdminSchoolsPage";
+import { SuperAdminDashboardPage } from "./features/super-admin/SuperAdminDashboardPage";
 
 const STAFF_ROLES = ["director", "accountant"] as const;
 
@@ -41,6 +42,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
 
         <Route element={<RequireAuth />}>
           <Route element={<Layout />}>
@@ -280,7 +282,7 @@ export default function App() {
               path="/admin/schools"
               element={
                 <RequireSuperAdmin>
-                  <SuperAdminSchoolsPage />
+                  <SuperAdminDashboardPage />
                 </RequireSuperAdmin>
               }
             />

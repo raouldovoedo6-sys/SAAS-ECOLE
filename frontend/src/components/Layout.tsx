@@ -38,7 +38,7 @@ export function Layout() {
         )}
         {isSuperAdmin && (
           <NavLink to="/admin/schools" className="link-button">
-            Écoles (admin)
+            Statistiques plateforme
           </NavLink>
         )}
         <NavLink to="/profile" className="link-button">
