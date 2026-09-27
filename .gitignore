@@ -1,0 +1,21 @@
+# Dépendances / builds
+node_modules/
+dist/
+dist-ssr/
+
+# Secrets locaux (jamais commités — voir .env.example)
+.env
+.env.local
+.env.*.local
+frontend/.env
+supabase/functions/.env
+
+# Supabase CLI
+supabase/.branches/
+supabase/.temp/
+
+# Éditeurs / OS
+.DS_Store
+*.log
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
