@@ -73,3 +73,68 @@ export interface FeeInstallment {
   amount: number;
   dueDate: string;
 }
+
+export interface SchoolClass {
+  id: string;
+  schoolYearId: string;
+  name: string;
+  level: string;
+  capacity: number | null;
+}
+
+export interface Guardian {
+  id: string;
+  schoolId: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  email: string | null;
+  preferredChannel: "whatsapp" | "sms";
+  consentWhatsapp: boolean;
+  consentSms: boolean;
+}
+
+export interface StudentGuardianLink {
+  id: string;
+  studentId: string;
+  guardianId: string;
+  relationship: "father" | "mother" | "tutor" | "other";
+  isPrimary: boolean;
+  canReceiveNotifications: boolean;
+  canReceiveFinancialDocuments: boolean;
+}
+
+export interface FeeCategory {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface FeeSchedule {
+  id: string;
+  schoolYearId: string;
+  feeCategoryId: string;
+  label: string;
+  totalAmount: number;
+  currency: string;
+}
+
+export interface StudentFeeAssignment {
+  id: string;
+  studentId: string;
+  feeScheduleId: string;
+  baseAmount: number;
+  discountAmount: number;
+  discountReason: string | null;
+  discountStatus: "none" | "pending_approval" | "approved" | "rejected";
+  exemption: boolean;
+}
+
+export interface Refund {
+  id: string;
+  paymentId: string;
+  amount: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected" | "completed";
+  createdAt: string;
+}

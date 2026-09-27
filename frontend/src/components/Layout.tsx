@@ -4,19 +4,20 @@ import { useAuth } from "../app/AuthContext";
 const STAFF_NAV = [
   { to: "/dashboard", label: "Tableau de bord", roles: ["director", "accountant"] },
   { to: "/students", label: "Élèves", roles: ["director", "accountant", "admin_staff"] },
+  { to: "/guardians", label: "Responsables", roles: ["director", "accountant", "admin_staff"] },
   { to: "/invoices", label: "Factures", roles: ["director", "accountant"] },
+  { to: "/unpaid", label: "Impayés", roles: ["director", "accountant"] },
   { to: "/payments", label: "Paiements", roles: ["director", "accountant"] },
+  { to: "/refunds", label: "Remboursements", roles: ["director", "accountant"] },
   { to: "/receipts", label: "Reçus", roles: ["director", "accountant"] },
+  { to: "/reports", label: "Rapports", roles: ["director"] },
   { to: "/settings", label: "Paramètres", roles: ["director"] },
 ];
 
-const PARENT_NAV = [{ to: "/parent", label: "Mes enfants", roles: ["parent"] }];
-
 export function Layout() {
-  const { currentRole, memberships, currentSchoolId, setCurrentSchoolId, signOut } = useAuth();
+  const { currentRole, memberships, currentSchoolId, setCurrentSchoolId, signOut, isSuperAdmin } = useAuth();
 
-  const nav = currentRole === "parent" ? PARENT_NAV : STAFF_NAV;
-  const visibleNav = nav.filter((item) => !currentRole || item.roles.includes(currentRole));
+  const visibleNav = STAFF_NAV.filter((item) => !currentRole || item.roles.includes(currentRole));
 
   return (
     <div className="app-shell">
@@ -35,6 +36,14 @@ export function Layout() {
             ))}
           </select>
         )}
+        {isSuperAdmin && (
+          <NavLink to="/admin/schools" className="link-button">
+            Écoles (admin)
+          </NavLink>
+        )}
+        <NavLink to="/profile" className="link-button">
+          Profil
+        </NavLink>
         <button onClick={() => signOut()} className="link-button">
           Déconnexion
         </button>

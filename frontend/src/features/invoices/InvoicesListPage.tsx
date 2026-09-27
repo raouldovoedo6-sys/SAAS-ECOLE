@@ -87,7 +87,9 @@ export function InvoicesListPage() {
         <tbody>
           {invoices.map((inv) => (
             <tr key={inv.id}>
-              <td>{inv.invoiceNumber}</td>
+              <td>
+                <Link to={`/invoices/${inv.id}`}>{inv.invoiceNumber}</Link>
+              </td>
               <td>{formatDate(inv.issueDate)}</td>
               <td>{formatDate(inv.dueDate)}</td>
               <td>

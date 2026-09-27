@@ -10,6 +10,7 @@ interface AuthContextValue {
   memberships: SchoolMembership[];
   currentSchoolId: string | null;
   currentRole: SchoolRole | null;
+  isSuperAdmin: boolean;
   setCurrentSchoolId: (schoolId: string) => void;
   refreshMemberships: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -27,9 +28,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [memberships, setMemberships] = useState<SchoolMembership[]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [currentSchoolId, setCurrentSchoolIdState] = useState<string | null>(
     () => localStorage.getItem("currentSchoolId"),
   );
+
+  async function loadSuperAdminStatus(userId: string) {
+    // La policy RLS platform_admins_select ne renvoie une ligne que si
+    // l'utilisateur est réellement super admin : ce test est fiable côté
+    // affichage, mais chaque action sensible reste revalidée côté serveur.
+    const { data } = await supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
+    setIsSuperAdmin(!!data);
+  }
 
   async function loadMemberships(userId: string) {
     const { data, error } = await supabase
@@ -70,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(data.session);
       if (data.session?.user) {
-        await loadMemberships(data.session.user.id);
+        await Promise.all([loadMemberships(data.session.user.id), loadSuperAdminStatus(data.session.user.id)]);
       }
       setLoading(false);
     });
@@ -78,9 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        await loadMemberships(newSession.user.id);
+        await Promise.all([loadMemberships(newSession.user.id), loadSuperAdminStatus(newSession.user.id)]);
       } else {
         setMemberships([]);
+        setIsSuperAdmin(false);
       }
     });
 
@@ -118,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     memberships,
     currentSchoolId,
     currentRole,
+    isSuperAdmin,
     setCurrentSchoolId: setCurrentSchoolIdState,
     refreshMemberships: async () => {
       if (session?.user) await loadMemberships(session.user.id);

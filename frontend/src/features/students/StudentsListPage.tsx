@@ -49,7 +49,12 @@ export function StudentsListPage() {
 
   return (
     <div>
-      <h1>Élèves</h1>
+      <div className="page-header">
+        <h1>Élèves</h1>
+        <Link to="/students/new" className="button">
+          + Nouvel élève
+        </Link>
+      </div>
       <input
         type="search"
         placeholder="Rechercher un élève…"
@@ -63,7 +68,7 @@ export function StudentsListPage() {
       <ul className="list">
         {filtered.map((s) => (
           <li key={s.id}>
-            <Link to={`/invoices?studentId=${s.id}`}>
+            <Link to={`/students/${s.id}`}>
               {s.lastName} {s.firstName} — <span className="muted">{s.studentCode}</span>
             </Link>
           </li>
