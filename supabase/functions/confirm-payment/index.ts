@@ -6,11 +6,17 @@ import { AppError, errorResponse } from "../_shared/errors.ts";
 import { corsHeaders, handleOptions } from "../_shared/cors.ts";
 import { writeAuditLog, clientIp } from "../_shared/audit.ts";
 import { generateReceiptPdf } from "../_shared/pdf.ts";
+import { enqueueDocumentNotifications } from "../_shared/notifyGuardians.ts";
 
 const bodySchema = z.object({
   schoolId: z.string().uuid(),
   paymentId: z.string().uuid(),
 });
+
+// Le parent n'a aucun autre moyen de redemander ce lien (il n'utilise pas
+// l'application) : durée volontairement plus longue qu'un accès via l'app,
+// mais toujours temporaire, jamais une URL publique permanente.
+const PARENT_DOCUMENT_LINK_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 jours
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Espèces",
@@ -157,55 +163,31 @@ Deno.serve(async (req) => {
     const receiptResult = Array.isArray(receiptData) ? receiptData[0] : receiptData;
 
     // ---- Notifications aux responsables autorisés ----
-    const { data: guardianLinks } = await admin
-      .from("student_guardians")
-      .select("guardian_id, guardians(id, phone, preferred_channel, consent_whatsapp, consent_sms)")
-      .eq("student_id", payment.student_id)
-      .eq("can_receive_financial_documents", true);
+    // Le parent n'utilise jamais l'application : le lien signé est généré
+    // ici, côté serveur, et inclus directement dans le message SMS/WhatsApp
+    // (voir docs/ARCHITECTURE.md). Durée volontairement plus longue qu'un
+    // accès via l'app (le parent ne peut pas en redemander un autre lui-même).
+    const { data: signedReceipt } = await admin.storage
+      .from("receipts")
+      .createSignedUrl(storagePath, PARENT_DOCUMENT_LINK_TTL_SECONDS);
 
-    const { data: channelSettings } = await admin
-      .from("notification_channel_settings")
-      .select("channel, enabled")
-      .eq("school_id", body.schoolId);
-    const enabledChannels = new Set((channelSettings ?? []).filter((c) => c.enabled).map((c) => c.channel));
-
-    for (const link of guardianLinks ?? []) {
-      const guardian = Array.isArray(link.guardians) ? link.guardians[0] : link.guardians;
-      if (!guardian?.phone) continue;
-
-      const candidateChannels: Array<"whatsapp" | "sms"> = [];
-      if (enabledChannels.has("whatsapp") && guardian.consent_whatsapp) candidateChannels.push("whatsapp");
-      if (enabledChannels.has("sms") && guardian.consent_sms) candidateChannels.push("sms");
-
-      for (const channel of candidateChannels) {
-        const { error: notifError } = await admin.from("notifications").insert({
-          school_id: body.schoolId,
-          student_id: payment.student_id,
-          guardian_id: guardian.id,
-          payment_id: body.paymentId,
-          channel,
-          type: "receipt",
-          template_name: "receipt_confirmation",
-          payload: {
-            receipt_number: receiptNumber,
-            amount: payment.amount,
-            currency: payment.currency,
-            student_full_name: `${student?.first_name ?? ""} ${student?.last_name ?? ""}`.trim(),
-            school_name: school?.name ?? "",
-            balance_after: totalDue - paidToDate,
-          },
-          status: "scheduled",
-          idempotency_key: `receipt:${body.paymentId}:${guardian.id}:${channel}`,
-        });
-        // Conflit sur (school_id, idempotency_key) = notification déjà en
-        // file pour ce reçu/canal/responsable : anti-doublon attendu, on
-        // n'échoue jamais la confirmation (déjà actée) pour une erreur de
-        // notification ; seule une erreur inattendue est journalisée.
-        if (notifError && notifError.code !== "23505") {
-          console.error("[notifications insert failed]", notifError);
-        }
-      }
-    }
+    await enqueueDocumentNotifications(admin, {
+      schoolId: body.schoolId,
+      studentId: payment.student_id,
+      type: "receipt",
+      templateName: "receipt_confirmation",
+      documentUrl: signedReceipt?.signedUrl ?? null,
+      paymentId: body.paymentId,
+      idempotencyPrefix: `receipt:${body.paymentId}`,
+      extraPayload: {
+        receipt_number: receiptNumber,
+        amount: payment.amount,
+        currency: payment.currency,
+        student_full_name: `${student?.first_name ?? ""} ${student?.last_name ?? ""}`.trim(),
+        school_name: school?.name ?? "",
+        balance_after: totalDue - paidToDate,
+      },
+    });
 
     return new Response(
       JSON.stringify({

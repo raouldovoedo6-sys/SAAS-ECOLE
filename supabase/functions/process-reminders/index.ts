@@ -23,6 +23,10 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Le parent n'utilise jamais l'application : ce lien est son seul accès au
+// document, envoyé directement dans le rappel SMS/WhatsApp.
+const PARENT_DOCUMENT_LINK_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 jours
+
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -92,6 +96,16 @@ Deno.serve(async (req) => {
           .eq("id", invoice.student_id)
           .single();
 
+        // Lien vers la facture déjà générée à sa création (create-invoice) ;
+        // si l'objet n'existe pas encore pour une raison quelconque,
+        // createSignedUrl échoue simplement et documentUrl reste null (le
+        // message est alors envoyé sans lien plutôt que de bloquer le rappel).
+        const invoiceStoragePath = `${rule.school_id}/${invoice.id}.pdf`;
+        const { data: signedInvoice } = await admin.storage
+          .from("invoices")
+          .createSignedUrl(invoiceStoragePath, PARENT_DOCUMENT_LINK_TTL_SECONDS);
+        const documentUrl = signedInvoice?.signedUrl ?? null;
+
         const { data: guardianLinks } = await admin
           .from("student_guardians")
           .select("guardian_id, guardians(id, phone, consent_whatsapp, consent_sms)")
@@ -131,6 +145,7 @@ Deno.serve(async (req) => {
                 invoice_number: invoice.invoice_number,
                 balance,
                 due_date: invoice.due_date,
+                document_url: documentUrl,
               },
               status: "scheduled",
               // Bucketé par jour : un même événement (facture + règle +

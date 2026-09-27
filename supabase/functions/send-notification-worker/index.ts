@@ -14,22 +14,49 @@ function requireCronSecret(req: Request) {
   }
 }
 
+// Le parent n'utilise jamais l'application : le lien (payload.document_url,
+// une URL signée Supabase Storage à durée limitée) est son seul accès au
+// document. Il est systématiquement ajouté au texte SMS et en dernier
+// paramètre du template WhatsApp.
+function documentLinkSuffix(payload: Record<string, unknown>): string {
+  const url = payload.document_url;
+  return typeof url === "string" && url.length > 0 ? ` Document : ${url}` : "";
+}
+
 function buildSmsMessage(type: string, payload: Record<string, unknown>): string {
+  if (type === "invoice") {
+    return (
+      `Facture ${payload.invoice_number} de ${payload.total_amount} pour ${payload.student_full_name}, ` +
+      `échéance ${payload.due_date}.` +
+      documentLinkSuffix(payload)
+    );
+  }
   if (type === "receipt") {
-    return `Reçu ${payload.receipt_number} : paiement de ${payload.amount} ${payload.currency} confirmé pour ${payload.student_full_name}. Solde restant : ${payload.balance_after}.`;
+    return (
+      `Reçu ${payload.receipt_number} : paiement de ${payload.amount} ${payload.currency} confirmé pour ${payload.student_full_name}. ` +
+      `Solde restant : ${payload.balance_after}.` +
+      documentLinkSuffix(payload)
+    );
   }
   if (type === "reminder") {
-    return `Rappel : ${payload.student_full_name} (${payload.student_code}) a un solde de ${payload.balance} sur la facture ${payload.invoice_number}, échéance ${payload.due_date}.`;
+    return (
+      `Rappel : ${payload.student_full_name} (${payload.student_code}) a un solde de ${payload.balance} sur la facture ${payload.invoice_number}, échéance ${payload.due_date}.` +
+      documentLinkSuffix(payload)
+    );
   }
-  return "Notification de l'établissement scolaire.";
+  return "Notification de l'établissement scolaire." + documentLinkSuffix(payload);
 }
 
 function buildWhatsAppParams(type: string, payload: Record<string, unknown>): string[] {
+  const documentUrl = String(payload.document_url ?? "");
+  if (type === "invoice") {
+    return [String(payload.student_full_name ?? ""), String(payload.total_amount ?? ""), String(payload.due_date ?? ""), documentUrl];
+  }
   if (type === "receipt") {
-    return [String(payload.student_full_name ?? ""), String(payload.amount ?? ""), String(payload.receipt_number ?? "")];
+    return [String(payload.student_full_name ?? ""), String(payload.amount ?? ""), String(payload.receipt_number ?? ""), documentUrl];
   }
   if (type === "reminder") {
-    return [String(payload.student_full_name ?? ""), String(payload.balance ?? ""), String(payload.due_date ?? "")];
+    return [String(payload.student_full_name ?? ""), String(payload.balance ?? ""), String(payload.due_date ?? ""), documentUrl];
   }
   return [];
 }

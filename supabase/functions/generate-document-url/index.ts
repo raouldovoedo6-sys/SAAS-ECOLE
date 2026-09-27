@@ -84,9 +84,10 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (error || !invoice) throw new AppError(404, "Document introuvable.");
-      // Les factures ne sont pas (encore) stockées en PDF pré-généré dans le
-      // MVP ; le chemin suit la même convention que les reçus pour permettre
-      // un ajout ultérieur sans changer le contrat de cette fonction.
+      // Le PDF est généré par create-invoice à ce chemin déterministe
+      // (voir supabase/functions/create-invoice). Si l'objet n'existe pas
+      // (échec ponctuel de génération), createSignedUrl échoue plus bas et
+      // renvoie un 404 générique plutôt que de planter.
       storagePath = `${body.schoolId}/${body.documentId}.pdf`;
       studentId = invoice.student_id;
       bucket = "invoices";
